@@ -9,7 +9,7 @@ const server = http.createServer(app);
 
 // In production, configure CORS to restrict origins
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: { origin: process.env.CLIENT_ORIGIN || "*"  }
 });
 
 // Serve static frontend
@@ -88,5 +88,5 @@ io.on('connection', socket => {
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });
