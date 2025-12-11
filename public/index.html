@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>LoveChat ❤️</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- LEFT SIDEBAR (hidden for now, future feature: contacts) -->
+  <div class="sidebar hide-mobile">
+    <div class="profile-section">
+      <div class="profile-pic">💑</div>
+      <div class="profile-name">LoveChat</div>
+    </div>
+  </div>
+
+  <!-- MAIN CHAT AREA -->
+  <div class="chat-area">
+
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <div class="chat-name">Your Lover ❤️</div>
+        <div id="typingIndicator" class="chat-status"></div>
+      </div>
+    </div>
+
+    <div id="messages" class="messages"></div>
+
+    <!-- Remote typing preview -->
+    <div id="remotePreview" class="remote-preview"></div>
+
+    <!-- INPUT AREA -->
+    <div class="input-area">
+      <button id="emojiBtn" class="emoji-btn">😊</button>
+
+      <textarea id="input" class="input-box" rows="1" placeholder="Type a sweet message..."></textarea>
+
+      <button id="sendBtn" class="send-btn">➤</button>
+    </div>
+
+    <emoji-picker id="emojiPicker" class="emoji-picker hide"></emoji-picker>
+
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/emojis/emoji-picker.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

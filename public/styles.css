@@ -1,0 +1,172 @@
+/* GENERAL */
+body, textarea, button {
+  font-family: "Segoe UI Emoji", "Arial Unicode MS", "Noto Color Emoji", sans-serif;
+}
+
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: #ece5dd;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* SIDEBAR (future use) */
+.sidebar {
+  width: 280px;
+  background: #ffffff;
+  border-right: 1px solid #ddd;
+}
+
+.hide-mobile {
+  display: none;
+}
+
+/* CHAT AREA */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #e5ddd5;
+  position: relative;
+}
+
+/* CHAT HEADER */
+.chat-header {
+  display: flex;
+  align-items: center;
+  padding: 14px;
+  background: #075e54;
+  color: #fff;
+}
+
+.chat-name {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.chat-status {
+  font-size: 12px;
+  color: #e0f2f1;
+}
+
+/* MESSAGES */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* CHAT BUBBLES */
+.message {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.4;
+  position: relative;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.message.me {
+  background: #dcf8c6;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.message.them {
+  background: #fff;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+/* REMOTE TYPING PREVIEW */
+.remote-preview {
+  padding: 6px 12px;
+  margin: 4px 12px;
+  max-width: 70%;
+  background: #ffe6f0;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #d81b60;
+  align-self: flex-start;
+  min-height: 20px;
+}
+
+/* INPUT AREA */
+.input-area {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background: #fff;
+  border-top: 1px solid #ddd;
+  gap: 8px;
+}
+
+.input-box {
+  flex: 1;
+  border: none;
+  padding: 10px;
+  border-radius: 20px;
+  font-size: 15px;
+  resize: none;
+  outline: none;
+  background: #f0f0f0;
+}
+
+.send-btn {
+  padding: 8px 14px;
+  border: none;
+  font-size: 18px;
+  border-radius: 50%;
+  background: #128c7e;
+  color: #fff;
+  cursor: pointer;
+}
+
+.send-btn:hover {
+  background: #0e766b;
+}
+
+.emoji-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* EMOJI PICKER */
+emoji-picker {
+  position: absolute;
+  bottom: 70px;
+  right: 20px;
+  width: 320px;
+  height: 260px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+
+.hide {
+  display: none;
+}
+
+/* ANIMATIONS */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* MOBILE RESPONSIVE */
+@media (max-width: 768px) {
+  .hide-mobile { display: none; }
+  #app { flex-direction: column; }
+}
