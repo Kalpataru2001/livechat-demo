@@ -1,5 +1,8 @@
 // app.js
-const socket = io();
+const socket = io("https://livechat-demo-production.up.railway.app", {
+  transports: ["websocket"]
+});
+
 let roomId = "room1";
 let userId = "lover" + Math.floor(Math.random() * 1000);
 
