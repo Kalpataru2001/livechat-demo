@@ -7,7 +7,18 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="profile-pic" style="font-size: 50px; margin-bottom: 10px;">🔐</div>
+    <h2>Join Chat</h2>
+    <p style="color: #666; margin-bottom: 20px;">Enter a Room ID to start chatting</p>
+    
+    <input type="text" id="usernameInput" class="login-input" placeholder="Your Name (e.g. Romeo)" />
+    <input type="text" id="roomInput" class="login-input" placeholder="Room Name (e.g. secret123)" />
+    
+    <button id="joinRoomBtn" class="login-btn">Start Chatting</button>
+  </div>
+</div>
 <div id="app">
 
   <!-- LEFT SIDEBAR (hidden for now, future feature: contacts) -->

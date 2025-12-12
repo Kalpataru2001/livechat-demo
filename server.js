@@ -1,43 +1,67 @@
 // server.js
+require('dotenv').config(); // Load the .env file
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
+
+// --- 1. SETUP DATABASE CONNECTION ---
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
 const server = http.createServer(app);
 
-// In production, configure CORS to restrict origins
+// Configure Socket.io with CORS
 const io = new Server(server, {
-  cors: { origin: process.env.CLIENT_ORIGIN || "*"  }
+  cors: { origin: process.env.CLIENT_ORIGIN || "*" }
 });
 
-// Serve static frontend
+// Serve frontend files
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Simple in-memory message store for demo (replace with DB in prod)
-const messages = {}; // { roomId: [ { id, from, text, ts } ] }
 
 io.on('connection', socket => {
   console.log('socket connected', socket.id);
 
-  // join a room (1:1 or group). roomId should be validated in production
-  socket.on('join', ({ roomId, userId }) => {
+  // --- 2. JOIN ROOM & LOAD HISTORY ---
+  socket.on('join', async ({ roomId, userId }) => {
     if (!roomId || !userId) return;
     socket.join(roomId);
     socket.data.userId = userId;
+    
     console.log(`${userId} joined ${roomId}`);
 
-    // send last messages to this client (simple history)
-    const history = messages[roomId] || [];
+    // Fetch last 50 messages from Supabase
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true }) // Oldest first
+      .limit(50);
+
+    if (error) {
+      console.error('Error fetching history:', error);
+      return;
+    }
+
+    // Convert DB format to UI format
+    const history = data.map(msg => ({
+      id: msg.id,
+      from: msg.user_id,
+      text: msg.content,
+      ts: new Date(msg.created_at).getTime()
+    }));
+
+    // Send history only to the person who joined
     socket.emit('history', history);
   });
 
-  // coalesced typing update (client sends current draft text periodically)
+  // --- 3. LIVE TYPING (Stays in Memory) ---
   socket.on('typing_update', ({ roomId, draft }) => {
     if (!roomId) return;
-    // sanitize length to prevent abuse
-    if (typeof draft !== 'string' || draft.length > 5000) return;
+    // Broadcast typing to others
     socket.to(roomId).emit('remote_typing_update', {
       from: socket.data.userId,
       draft,
@@ -45,7 +69,6 @@ io.on('connection', socket => {
     });
   });
 
-  // typing status: 'typing' or 'stopped' (for indicator)
   socket.on('typing_status', ({ roomId, status }) => {
     if (!roomId) return;
     socket.to(roomId).emit('remote_typing_status', {
@@ -54,23 +77,40 @@ io.on('connection', socket => {
     });
   });
 
-  // send final message: persist and notify room
-  socket.on('send_message', ({ roomId, message }) => {
+  // --- 4. SEND MESSAGE & SAVE TO DB ---
+  socket.on('send_message', async ({ roomId, message }) => {
     if (!roomId || typeof message !== 'string') return;
-    const msg = {
-      id: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-      from: socket.data.userId || 'anon',
-      text: message,
-      ts: Date.now()
-    };
-    messages[roomId] = messages[roomId] || [];
-    messages[roomId].push(msg);
 
-    // emit message to everyone in the room
-    io.to(roomId).emit('new_message', msg);
+    // A. Insert into Supabase
+    const { data, error } = await supabase
+      .from('messages')
+      .insert([
+        { 
+          room_id: roomId, 
+          user_id: socket.data.userId, 
+          content: message 
+        }
+      ])
+      .select(); // Return the saved row
+
+    if (error) {
+      console.error('Error saving message:', error);
+      return; 
+    }
+
+    // B. Send to everyone in the room
+    const savedMsg = data[0];
+    const msgPayload = {
+      id: savedMsg.id,
+      from: socket.data.userId,
+      text: message,
+      ts: new Date(savedMsg.created_at).getTime()
+    };
+
+    io.to(roomId).emit('new_message', msgPayload);
   });
 
-  // read ack: mark message as read (for UI updates)
+  // Read receipts (Optional - keeps existing logic)
   socket.on('message_read', ({ roomId, messageId }) => {
     if (!roomId || !messageId) return;
     socket.to(roomId).emit('message_read_ack', {
@@ -80,12 +120,11 @@ io.on('connection', socket => {
     });
   });
 
-  socket.on('disconnect', reason => {
-    console.log('socket disconnected', socket.id, reason);
+  socket.on('disconnect', () => {
+    console.log('socket disconnected', socket.id);
   });
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log("Server running on port " + PORT);

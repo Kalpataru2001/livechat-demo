@@ -170,3 +170,64 @@ emoji-picker {
   .hide-mobile { display: none; }
   #app { flex-direction: column; }
 }
+/* --- LOGIN SCREEN STYLES --- */
+.login-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #ece5dd;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Sit on top of everything */
+}
+
+.login-card {
+  background: white;
+  padding: 30px;
+  border-radius: 18px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  width: 90%;
+  max-width: 350px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-input {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 16px;
+  outline: none;
+  background: #f9f9f9;
+}
+
+.login-input:focus {
+  border-color: #128c7e;
+  background: #fff;
+}
+
+.login-btn {
+  padding: 12px;
+  background: #128c7e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.login-btn:hover {
+  background: #075e54;
+}
+
+/* Helper to hide the login screen */
+.hidden {
+  display: none !important;
+}
