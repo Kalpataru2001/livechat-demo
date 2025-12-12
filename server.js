@@ -51,9 +51,10 @@ io.on('connection', socket => {
     const history = data.map(msg => ({
       id: msg.id,
       from: msg.user_id,
-      text: msg.content,
+      text: msg.is_deleted ? "🚫 This message was deleted" : msg.content,
       ts: new Date(msg.created_at).getTime(),
-      read: msg.is_read // Critical: pass read status so old ticks show blue
+      read: msg.is_read, // Critical: pass read status so old ticks show blue
+       is_deleted: msg.is_deleted
     }));
 
     // Send history only to the person who joined
@@ -135,6 +136,24 @@ io.on('connection', socket => {
       by: socket.data.userId,
       ts: Date.now()
     });
+  });
+
+  // --- 6. SOFT DELETE MESSAGE ---
+  socket.on('delete_message', async ({ roomId, messageId }) => {
+    if (!roomId || !messageId) return;
+
+    // Soft delete: Update is_deleted=true. 
+    // Security: Check 'user_id' so they can only delete their own.
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_deleted: true }) 
+      .eq('id', messageId)
+      .eq('user_id', socket.data.userId);
+
+    if (!error) {
+      // Broadcast to room so UI updates instantly
+      io.to(roomId).emit('message_deleted', { messageId });
+    }
   });
 
   socket.on('disconnect', () => {

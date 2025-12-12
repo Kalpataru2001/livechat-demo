@@ -268,3 +268,46 @@ emoji-picker {
 .message.them .tick {
   display: none;
 }
+
+/* LIVE TOGGLE SWITCH */
+.live-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-right: 5px;
+  user-select: none;
+  width: 30px;
+  height: 30px;
+}
+
+.live-toggle input {
+  display: none; /* Hide default box */
+}
+
+.live-toggle span {
+  font-size: 20px;
+  color: #aaa; /* Gray when disabled */
+  transition: all 0.3s ease;
+  filter: grayscale(100%);
+}
+
+/* When Checked (Enabled) */
+.live-toggle input:checked + span {
+  color: #ffeb3b; /* Yellow */
+  filter: none;
+  text-shadow: 0 0 8px rgba(255, 235, 59, 0.6); /* Glow effect */
+  transform: scale(1.1);
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+.delete-btn:hover {
+  opacity: 1;
+}

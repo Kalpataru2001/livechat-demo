@@ -24,7 +24,7 @@ const sendBtn = document.getElementById("sendBtn");
 const emojiBtn = document.getElementById("emojiBtn");
 const emojiPicker = document.getElementById("emojiPicker");
 const chatNameEl = document.querySelector(".chat-name");
-
+const liveTypingCheck = document.getElementById("liveTypingCheck");
 // Global Variables
 let roomId = "";
 let userId = "";
@@ -90,7 +90,7 @@ socket.on("history", (messages) => {
   messages.forEach(msg => {
     const isMe = msg.from === userId;
     // CRITICAL: We pass 6 arguments here
-    addMessageUI(msg.text, isMe, msg.from, msg.ts, msg.id, msg.read);
+    addMessageUI(msg.text, isMe, msg.from, msg.ts, msg.id, msg.read, msg.is_deleted);
   });
 });
 
@@ -98,13 +98,13 @@ socket.on("history", (messages) => {
 socket.on("new_message", msg => {
   const isMe = msg.from === userId;
   // CRITICAL: We pass 6 arguments here
-  addMessageUI(msg.text, isMe, msg.from, msg.ts, msg.id, false);
-  
+  addMessageUI(msg.text, isMe, msg.from, msg.ts, msg.id, false, false);
+
   if (!isMe) {
     remotePreview.textContent = "";
     // Play Sound safely
     notificationSound.currentTime = 0;
-     notificationSound.play().catch(e => console.warn("Audio blocked by browser policy", e));
+    notificationSound.play().catch(e => console.warn("Audio blocked by browser policy", e));
   }
 });
 
@@ -131,10 +131,10 @@ socket.on("remote_typing_status", ({ from, status }) => {
 // --- 3. UI HELPERS ---
 
 // THIS WAS THE FIX: Added 'messageId' and 'isRead' to the arguments
-function addMessageUI(text, isMe, senderName, timestamp, messageId, isRead) {
+function addMessageUI(text, isMe, senderName, timestamp, messageId, isRead, isDeleted) {
   const el = document.createElement("div");
   el.className = "message " + (isMe ? "me" : "them");
-  
+
   // Store ID in DOM
   if (messageId) el.dataset.id = messageId;
 
@@ -146,12 +146,49 @@ function addMessageUI(text, isMe, senderName, timestamp, messageId, isRead) {
   const tickClass = isRead ? "tick read" : "tick";
   const tickHtml = isMe ? `<span class="${tickClass}" id="tick-${messageId}">✓✓</span>` : "";
 
+  let contentHtml = "";
+  let deleteBtn = "";
+
+  if (isDeleted) {
+    // 1. If deleted, show gray text
+    contentHtml = `<div class="msg-text deleted-msg-text" style="font-style:italic; color:#888;">🚫 This message was deleted</div>`;
+  } else {
+    // 2. Normal content
+    contentHtml = `<div class="msg-text">${text}</div>`;
+
+    // 3. Show delete button (Trash Icon) ONLY if it's ME and NOT deleted
+    if (isMe) {
+      deleteBtn = `<button class="delete-btn" onclick="deleteMessage('${messageId}')">🗑️</button>`;
+    }
+  }
+  // 1. Triggered by the Trash Button
+  window.deleteMessage = (messageId) => {
+    if (confirm("Are you sure you want to delete this message?")) {
+      socket.emit("delete_message", { roomId, messageId });
+    }
+  };
+  // 2. Triggered by Server when ANYONE deletes a message
+  socket.on("message_deleted", ({ messageId }) => {
+    const el = document.querySelector(`.message[data-id="${messageId}"]`);
+    if (el) {
+      // Remove Delete Button
+      const btn = el.querySelector('.delete-btn');
+      if (btn) btn.remove();
+
+      // Replace Text with "Deleted" message
+      const wrapper = el.querySelector('.msg-content-wrapper');
+      if (wrapper) {
+        wrapper.innerHTML = `<div class="msg-text" style="font-style:italic; color:#888;">🚫 This message was deleted</div>`;
+      }
+    }
+  });
   // HTML Structure
   el.innerHTML = `
-    <div class="msg-text">${text}</div>
+    <div class="msg-content-wrapper">${contentHtml}</div>
     <div style="display:flex; justify-content:flex-end; align-items:center; gap:5px;">
       <span class="timestamp">${timeStr}</span>
       ${tickHtml}
+      ${deleteBtn}
     </div>
   `;
 
@@ -177,8 +214,16 @@ function debounce(fn, ms) {
 // --- 4. INPUT ---
 
 const sendDraftDebounced = debounce(() => {
-  socket.emit("typing_update", { roomId, draft: input.value });
+  // 1. Always tell the other person "Status: Typing..."
   socket.emit("typing_status", { roomId, status: "typing" });
+
+  // 2. Only send the actual text if the toggle is ON
+  if (liveTypingCheck.checked) {
+    socket.emit("typing_update", { roomId, draft: input.value });
+  } else {
+    // If off, send empty string to clear their preview box
+    socket.emit("typing_update", { roomId, draft: "" });
+  }
 
   clearTimeout(window.stopTimer);
   window.stopTimer = setTimeout(() => {
@@ -210,3 +255,13 @@ emojiPicker.addEventListener("emoji-click", e => {
   emojiPicker.classList.add("hide");
   input.focus();
 });
+
+function updateHeaderStatus() {
+  if (isPartnerOnline) {
+    typingIndicator.textContent = "Online 🟢";
+    typingIndicator.style.color = "#76ff03";
+  } else {
+    typingIndicator.textContent = "Waiting for partner... ⚪";
+    typingIndicator.style.color = "#ccc";
+  }
+}

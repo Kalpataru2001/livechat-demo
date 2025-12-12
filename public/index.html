@@ -46,9 +46,20 @@
 
     <!-- INPUT AREA -->
     <div class="input-area">
+      <!-- 1. LIVE TYPING TOGGLE -->
+      <label class="live-toggle" title="Toggle Live Letter-by-Letter Typing">
+        <input type="checkbox" id="liveTypingCheck" checked>
+        <span>⚡</span>
+      </label>
+
+      <!-- 2. HIDDEN FILE INPUT -->
+      <input type="file" id="fileInput" accept="image/*" style="display: none;" />
+      
+      <!-- 3. BUTTONS & INPUT -->
+      <!-- <button id="imgBtn" class="emoji-btn">📷</button> -->
       <button id="emojiBtn" class="emoji-btn">😊</button>
 
-      <textarea id="input" class="input-box" rows="1" placeholder="Type a sweet message..."></textarea>
+      <textarea id="input" class="input-box" rows="1" placeholder="Type a message..."></textarea>
 
       <button id="sendBtn" class="send-btn">➤</button>
     </div>
