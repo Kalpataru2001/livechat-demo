@@ -231,3 +231,40 @@ emoji-picker {
 .hidden {
   display: none !important;
 }
+
+/* TIMESTAMPS */
+.timestamp {
+  display: block;
+  font-size: 10px;
+  text-align: right;
+  margin-top: 4px;
+  opacity: 0.7; /* Slightly transparent */
+}
+
+/* Make 'me' timestamps darker so they are readable on green */
+.message.me .timestamp {
+  color: #1a4a1c; 
+}
+
+/* Make 'them' timestamps grey */
+.message.them .timestamp {
+  color: #888;
+}
+
+/* READ RECEIPT TICKS */
+.tick {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 11px;
+  color: #999; /* Default Gray */
+  transition: color 0.3s ease;
+}
+
+.tick.read {
+  color: #34b7f1; /* WhatsApp Blue */
+}
+
+/* Only show ticks on MY messages */
+.message.them .tick {
+  display: none;
+}

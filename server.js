@@ -1,5 +1,5 @@
 // server.js
-require('dotenv').config(); // Load the .env file
+require('dotenv').config(); // Load environment variables
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -14,12 +14,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const app = express();
 const server = http.createServer(app);
 
-// Configure Socket.io with CORS
+// Configure Socket.io with CORS (Cross-Origin Resource Sharing)
 const io = new Server(server, {
   cors: { origin: process.env.CLIENT_ORIGIN || "*" }
 });
 
-// Serve frontend files
+// Serve frontend static files
 app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', socket => {
@@ -28,6 +28,7 @@ io.on('connection', socket => {
   // --- 2. JOIN ROOM & LOAD HISTORY ---
   socket.on('join', async ({ roomId, userId }) => {
     if (!roomId || !userId) return;
+    
     socket.join(roomId);
     socket.data.userId = userId;
     
@@ -51,17 +52,17 @@ io.on('connection', socket => {
       id: msg.id,
       from: msg.user_id,
       text: msg.content,
-      ts: new Date(msg.created_at).getTime()
+      ts: new Date(msg.created_at).getTime(),
+      read: msg.is_read // Critical: pass read status so old ticks show blue
     }));
 
     // Send history only to the person who joined
     socket.emit('history', history);
   });
 
-  // --- 3. LIVE TYPING (Stays in Memory) ---
+  // --- 3. LIVE TYPING (In-Memory) ---
   socket.on('typing_update', ({ roomId, draft }) => {
     if (!roomId) return;
-    // Broadcast typing to others
     socket.to(roomId).emit('remote_typing_update', {
       from: socket.data.userId,
       draft,
@@ -91,7 +92,7 @@ io.on('connection', socket => {
           content: message 
         }
       ])
-      .select(); // Return the saved row
+      .select(); // Return the saved row (needed for ID and Timestamp)
 
     if (error) {
       console.error('Error saving message:', error);
@@ -104,15 +105,31 @@ io.on('connection', socket => {
       id: savedMsg.id,
       from: socket.data.userId,
       text: message,
-      ts: new Date(savedMsg.created_at).getTime()
+      ts: new Date(savedMsg.created_at).getTime(),
+      read: false // New messages start unread
     };
 
     io.to(roomId).emit('new_message', msgPayload);
   });
 
-  // Read receipts (Optional - keeps existing logic)
-  socket.on('message_read', ({ roomId, messageId }) => {
+  // --- 5. READ RECEIPTS (Mark as Read) ---
+  socket.on('message_read', async ({ roomId, messageId }) => {
+    // Validation: We need roomId to know where to send the ACK
     if (!roomId || !messageId) return;
+
+    // A. Update Supabase (Persistent storage)
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('id', messageId);
+    
+    if (error) {
+      console.error("Error updating read status:", error);
+      return;
+    }
+
+    // B. Notify the sender (Real-time update)
+    // We send to everyone else in the room (which includes the sender)
     socket.to(roomId).emit('message_read_ack', {
       messageId,
       by: socket.data.userId,

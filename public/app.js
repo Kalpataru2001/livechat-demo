@@ -1,20 +1,21 @@
 // app.js
 
-// 1. Initialize Socket but DO NOT connect yet
+// 1. Initialize Socket (Do not connect yet)
 const socket = io(window.location.origin, {
   transports: ["websocket"],
-  autoConnect: false // <--- Waits for user to click "Start Chatting"
+  autoConnect: false
 });
 
-// --- DOM ELEMENTS ---
+// --- AUDIO SETUP ---
+// We use a Google-hosted "Pop" sound which is reliable and allows hotlinking
+const notificationSound = new Audio("https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3");
 
-// Login Screen Elements
+// --- DOM ELEMENTS ---
 const loginScreen = document.getElementById("loginScreen");
 const usernameInput = document.getElementById("usernameInput");
 const roomInput = document.getElementById("roomInput");
 const joinRoomBtn = document.getElementById("joinRoomBtn");
 
-// Chat UI Elements
 const input = document.getElementById("input");
 const messagesEl = document.getElementById("messages");
 const remotePreview = document.getElementById("remotePreview");
@@ -28,52 +29,54 @@ const chatNameEl = document.querySelector(".chat-name");
 let roomId = "";
 let userId = "";
 
-// --- 1. LOGIN & JOIN LOGIC ---
+// --- 1. LOGIN LOGIC ---
 
-// A. Check URL: If friend sent link (e.g., ?room=LoveNest), pre-fill the box
+// Check URL parameters
 const urlParams = new URLSearchParams(window.location.search);
 const urlRoom = urlParams.get('room');
 if (urlRoom) {
   roomInput.value = urlRoom;
 }
 
-// B. Check Storage: Remember the user's name from last time
+// Check LocalStorage
 const savedName = localStorage.getItem("chat_username");
 if (savedName) {
   usernameInput.value = savedName;
 }
 
-// C. Handle "Start Chatting" Click
 joinRoomBtn.onclick = () => {
   const userVal = usernameInput.value.trim();
   const roomVal = roomInput.value.trim();
 
-  // Validation
   if (!userVal || !roomVal) {
-    alert("Please enter both your Name and a Room Name.");
+    alert("Please enter Name and Room ID");
     return;
   }
 
-  // Set Global Variables
+  // Set Globals
   userId = userVal;
   roomId = roomVal;
-
-  // Save name for next time
   localStorage.setItem("chat_username", userId);
 
-  // Update UI
+  // UI Updates
   chatNameEl.textContent = `Room: ${roomId}`;
-  loginScreen.classList.add("hidden"); // Hide the login box
+  loginScreen.classList.add("hidden");
 
-  // Update URL (so it can be copied) without reloading
+  // Update URL
   const newUrl = `${window.location.pathname}?room=${roomId}`;
   window.history.pushState({ path: newUrl }, '', newUrl);
 
-  // D. Connect to Server
+  // Unlock Audio (Browser requirement)
+  notificationSound.volume = 0.5; // Set volume to 50%
+  notificationSound.play().then(() => {
+    notificationSound.pause();
+    notificationSound.currentTime = 0;
+  }).catch((e) => { console.log("Audio unlock failed (will try again on message)", e) });
+
+  // Connect
   socket.connect();
   socket.emit("join", { roomId, userId });
 };
-
 
 // --- 2. SOCKET EVENTS ---
 
@@ -81,32 +84,44 @@ socket.on("connect", () => {
   console.log("Connected to server");
 });
 
-// Receive History (Loads from Supabase)
+// A. HISTORY
 socket.on("history", (messages) => {
-  messagesEl.innerHTML = ""; // Clear any demo text
+  messagesEl.innerHTML = "";
   messages.forEach(msg => {
     const isMe = msg.from === userId;
-    addMessageUI(msg.text, isMe, msg.from);
+    // CRITICAL: We pass 6 arguments here
+    addMessageUI(msg.text, isMe, msg.from, msg.ts, msg.id, msg.read);
   });
 });
 
-// Receive New Message
+// B. NEW MESSAGE
 socket.on("new_message", msg => {
   const isMe = msg.from === userId;
-  addMessageUI(msg.text, isMe, msg.from);
+  // CRITICAL: We pass 6 arguments here
+  addMessageUI(msg.text, isMe, msg.from, msg.ts, msg.id, false);
   
-  // Clear typing preview if it was from the other person
-  if (!isMe) remotePreview.textContent = "";
+  if (!isMe) {
+    remotePreview.textContent = "";
+    // Play Sound safely
+    notificationSound.currentTime = 0;
+     notificationSound.play().catch(e => console.warn("Audio blocked by browser policy", e));
+  }
 });
 
-// Live Typing Preview
+// C. READ RECEIPT (Turn Tick Blue)
+socket.on("message_read_ack", ({ messageId }) => {
+  const tickEl = document.getElementById(`tick-${messageId}`);
+  if (tickEl) {
+    tickEl.classList.add("read");
+  }
+});
+
+// D. TYPING
 socket.on("remote_typing_update", ({ from, draft }) => {
   if (from === userId) return;
-  // Show "Name: typing..."
   remotePreview.textContent = `${from}: ${draft}`;
 });
 
-// Typing Status (dots)
 socket.on("remote_typing_status", ({ from, status }) => {
   if (from === userId) return;
   typingIndicator.textContent = status === "typing" ? `${from} is typing...` : "";
@@ -115,19 +130,42 @@ socket.on("remote_typing_status", ({ from, status }) => {
 
 // --- 3. UI HELPERS ---
 
-function addMessageUI(text, isMe, senderName) {
+// THIS WAS THE FIX: Added 'messageId' and 'isRead' to the arguments
+function addMessageUI(text, isMe, senderName, timestamp, messageId, isRead) {
   const el = document.createElement("div");
   el.className = "message " + (isMe ? "me" : "them");
   
-  // Optional: You could add the sender's name in small text if you want
-  // el.setAttribute('title', senderName); 
+  // Store ID in DOM
+  if (messageId) el.dataset.id = messageId;
 
-  el.textContent = text;
+  // Format Time
+  const date = new Date(timestamp || Date.now());
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Tick Logic
+  const tickClass = isRead ? "tick read" : "tick";
+  const tickHtml = isMe ? `<span class="${tickClass}" id="tick-${messageId}">✓✓</span>` : "";
+
+  // HTML Structure
+  el.innerHTML = `
+    <div class="msg-text">${text}</div>
+    <div style="display:flex; justify-content:flex-end; align-items:center; gap:5px;">
+      <span class="timestamp">${timeStr}</span>
+      ${tickHtml}
+    </div>
+  `;
+
   messagesEl.appendChild(el);
-  messagesEl.scrollTop = messagesEl.scrollHeight; // Auto scroll
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  // TRIGGER READ RECEIPT
+  // If it's NOT me, and I have a valid ID, tell server I read it
+  if (!isMe && messageId) {
+    socket.emit("message_read", { roomId, messageId });
+  }
 }
 
-// Debounce (Limits network requests while typing)
+// Debounce
 function debounce(fn, ms) {
   let t;
   return (...args) => {
@@ -136,47 +174,39 @@ function debounce(fn, ms) {
   };
 }
 
-
-// --- 4. INPUT & SENDING ---
+// --- 4. INPUT ---
 
 const sendDraftDebounced = debounce(() => {
-  // Send live characters to the room
   socket.emit("typing_update", { roomId, draft: input.value });
   socket.emit("typing_status", { roomId, status: "typing" });
 
-  // Stop typing status after 1.2 seconds of no activity
   clearTimeout(window.stopTimer);
   window.stopTimer = setTimeout(() => {
     socket.emit("typing_status", { roomId, status: "stopped" });
   }, 1200);
 }, 120);
 
-// Listen for typing
 input.addEventListener("input", () => {
   sendDraftDebounced();
 });
 
-// Send Button Logic
 sendBtn.onclick = () => {
   const msg = input.value.trim();
   if (!msg) return;
 
   socket.emit("send_message", { roomId, message: msg });
-  
   input.value = "";
   remotePreview.textContent = "";
 };
 
-
-// --- 5. EMOJI PICKER ---
-
+// Emoji
 emojiBtn.onclick = () => {
   emojiPicker.classList.toggle("hide");
 };
 
 emojiPicker.addEventListener("emoji-click", e => {
   input.value += e.detail.emoji;
-  sendDraftDebounced(); // Update the live preview immediately
+  sendDraftDebounced();
   emojiPicker.classList.add("hide");
   input.focus();
 });
